@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require "linkmap_ios"
+require "thor"
+
+module LinkmapIos
+  class CLI < Thor
+    desc "parse [LINKMAP FILE PATH]", "Parse link map file and output. Will output Ruby Hash by default"
+    # method_option :path, :type => :string, :required => true, :aliases => "-i"
+    method_option :format, :type => :string, :enum => %w{hash json report}, :aliases => "-f"
+    method_option :output_path, :type => :string, :aliases => "-o"
+    def parse(path)
+      puts "Start parsing. Link map file size is #{File.size(path)}"
+      start_time = Time.now
+
+      format = (options.format or 'hash')
+      output = LinkmapIos::LinkmapParser.new(path).send(format)
+
+      puts "Parse file done. Time used: #{Time.now - start_time}s"
+      start_time = Time.now
+
+      if options.output_path
+        File.write(options.output_path, output)
+        puts "Write file done. Time used: #{Time.now - start_time}s"
+      else
+        puts output
+      end
+    end
+  end
+end
+
+LinkmapIos::CLI.start
