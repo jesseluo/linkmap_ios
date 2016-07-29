@@ -63,7 +63,7 @@ module LinkmapIos
           # Deal with string like 
           unless line.valid_encoding?
             line = line.encode("UTF-16", :invalid => :replace, :replace => "?").encode('UTF-8')
-            puts "#{line_num}: #{line}"
+            # puts "#{line_num}: #{line}"
           end
 
           if line.include? "#"

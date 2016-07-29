@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
                           Then ouput result with hash, json or report.
                           Also have a command line tool
                         }
-  spec.homepage      = ""
+  spec.homepage      = "https://github.com/jesseluo/linkmap_ios"
   spec.license       = "MIT"
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
