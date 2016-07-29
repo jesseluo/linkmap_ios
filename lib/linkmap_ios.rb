@@ -3,6 +3,9 @@ require "json"
 
 module LinkmapIos
   class LinkmapParser
+    attr_reader :id_map
+    attr_reader :library_map
+
     def initialize(file_path)
       @file_path = file_path
       @id_map = {}
@@ -57,6 +60,12 @@ module LinkmapIos
     def parse
       File.foreach(@file_path).with_index do |line, line_num|
         begin
+          # Deal with string like 
+          unless line.valid_encoding?
+            line = line.encode("UTF-16", :invalid => :replace, :replace => "?").encode('UTF-8')
+            puts "#{line_num}: #{line}"
+          end
+
           if line.include? "#"
             if line.include? "# Object files:"
               @subparser = :parse_object_files
@@ -69,7 +78,8 @@ module LinkmapIos
             send(@subparser, line)
           end
         rescue => e
-          puts "Exception on Link map file line #{line_num}"
+          puts "Exception on Link map file line #{line_num}. Content is"
+          puts line
           raise e
         end
       end
@@ -115,7 +125,7 @@ module LinkmapIos
       if text =~ /.*(0x.*)\s\[(.*\d)\].*/
         id_info = @id_map[$2.to_i]
         if id_info
-          id_info[:size] += $1.to_i(16)
+          id_info[:size] = (id_info[:size] or 0) + $1.to_i(16)
           @library_map[id_info[:library]].size += $1.to_i(16)
         end
       end
