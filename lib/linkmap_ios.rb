@@ -2,6 +2,8 @@ require "linkmap_ios/version"
 require "json"
 
 module LinkmapIos
+  Library = Struct.new(:name, :size, :objects)
+
   class LinkmapParser
     attr_reader :id_map
     attr_reader :library_map
@@ -19,7 +21,7 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
 
       # puts total_size
       # puts detail
@@ -38,7 +40,7 @@ module LinkmapIos
       report = "# Total size\n"
       report << "#{result[:total]} Byte\n"
       report << "\n# Library detail\n"
-      result[:detail].sort_by { |h| h[:size] }.each do |lib|
+      result[:detail].sort_by { |h| h[:size] }.reverse.each do |lib|
         report << "#{lib[:library]}   #{lib[:size]} Byte\n"
       end
       report << "\n# Object detail\n"
@@ -90,7 +92,7 @@ module LinkmapIos
         id = $1.to_i
         @id_map[id] = {:library => $2, :object => $3}
 
-        library = (@library_map[$2] or Library.new($2))
+        library = (@library_map[$2] or Library.new($2, 0, []))
         library.objects << id
         @library_map[$2] = library
       elsif text =~ /\[(.*)\].*\/(.*)/
@@ -103,7 +105,7 @@ module LinkmapIos
         lib = $2.end_with?('.tbd') ? 'System' : 'Main'
         @id_map[id] = {:library => lib, :object => $2}
 
-        library = (@library_map[lib] or Library.new(lib))
+        library = (@library_map[lib] or Library.new(lib, 0, []))
         library.objects << id
         @library_map[lib] = library
       end
@@ -123,24 +125,6 @@ module LinkmapIos
           @library_map[id_info[:library]].size += $1.to_i(16)
         end
       end
-    end
-  end
-
-  class Library
-    attr_accessor :name
-    attr_accessor :size
-    attr_accessor :objects
-
-    def initialize(name)
-      @name = name
-      @size = 0
-      @objects = Array.new
-    end
-
-    def to_hash
-      hash = {}
-      instance_variables.each_with_object({}) { |var, hash| hash[var.to_s.delete("@")] = instance_variable_get(var) }
-      hash
     end
   end
 end
