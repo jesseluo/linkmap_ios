@@ -14,17 +14,12 @@ module LinkmapIos
 
     def hash
       # Cache
-      if @result_hash
-        return @result_hash
-      end
+      return @result_hash if @result_hash
 
       parse
 
-      total_size = @library_map.map {|_, v| v.size }.inject(:+)
-      detail = []
-      @library_map.each_value do |lib|
-        detail << {:library => lib.name, :size => lib.size, :objects => lib.objects.map {|o| @id_map[o][:object] }}
-      end
+      total_size = @library_map.values.map(&:size).inject(:+)
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}
 
       # puts total_size
       # puts detail
@@ -37,22 +32,21 @@ module LinkmapIos
       JSON.pretty_generate(hash)
     end
 
-    def report()
+    def report
       result = hash
-      file = ''
 
-      file << "# Total size\n"
-      file << "#{result[:total]} Byte\n"
-      file << "\n# Library detail\n"
+      report = "# Total size\n"
+      report << "#{result[:total]} Byte\n"
+      report << "\n# Library detail\n"
       result[:detail].sort_by { |h| h[:size] }.each do |lib|
-        file << "#{lib[:library]}   #{lib[:size]} Byte\n"
+        report << "#{lib[:library]}   #{lib[:size]} Byte\n"
       end
-      file << "\n# Object detail\n"
+      report << "\n# Object detail\n"
       @id_map.each_value do |id_info|
-        file << "#{id_info[:object]}   #{id_info[:size]} Byte\n"
+        report << "#{id_info[:object]}   #{id_info[:size]} Byte\n"
       end
 
-      file
+      report
     end
 
     private
