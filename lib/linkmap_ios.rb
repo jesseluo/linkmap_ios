@@ -1,4 +1,5 @@
 require "linkmap_ios/version"
+require "filesize"
 require "json"
 
 module LinkmapIos
@@ -38,14 +39,14 @@ module LinkmapIos
       result = hash
 
       report = "# Total size\n"
-      report << "#{result[:total]} Byte\n"
+      report << "#{Filesize.from(result[:total].to_s + 'B').pretty}\n"
       report << "\n# Library detail\n"
       result[:detail].sort_by { |h| h[:size] }.reverse.each do |lib|
-        report << "#{lib[:library]}   #{lib[:size]} Byte\n"
+        report << "#{lib[:library]}   #{Filesize.from(lib[:size].to_s + 'B').pretty}\n"
       end
       report << "\n# Object detail\n"
       @id_map.each_value do |id_info|
-        report << "#{id_info[:object]}   #{id_info[:size]} Byte\n"
+        report << "#{id_info[:object]}   #{Filesize.from(id_info[:size].to_s + 'B').pretty}\n"
       end
 
       report
