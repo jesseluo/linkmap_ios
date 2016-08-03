@@ -2,19 +2,35 @@
 
 require "bundler/setup"
 require "linkmap_ios"
+require "csv"
 require "thor"
 
 module LinkmapIos
   class CLI < Thor
     desc "parse [LINKMAP FILE PATH]", "Parse link map file and output. Will output Ruby Hash by default"
     # method_option :path, :type => :string, :required => true, :aliases => "-i"
-    method_option :format, :type => :string, :enum => %w{hash json report}, :aliases => "-f"
+    method_option :format, :type => :string, :enum => %w{hash json report csv}, :aliases => "-f"
     method_option :output_path, :type => :string, :aliases => "-o"
     def parse(path)
       puts "Start parsing. Link map file size is #{File.size(path)}"
       start_time = Time.now
 
       format = (options.format or 'hash')
+
+      if format.eql? 'csv'
+        output = LinkmapIos::LinkmapParser.new(path).hash
+        puts "Parse file done. Time used: #{Time.now - start_time}s"
+
+        CSV.open(options.output_path, "wb") do |csv|
+          csv << ['total size', output[:total]]
+          output[:detail].each do |lib|
+            csv << [lib[:library], lib[:size]]
+          end
+        end
+
+        return
+      end
+
       output = LinkmapIos::LinkmapParser.new(path).send(format)
 
       puts "Parse file done. Time used: #{Time.now - start_time}s"
