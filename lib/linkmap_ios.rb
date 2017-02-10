@@ -102,8 +102,14 @@ module LinkmapIos
         # [100] /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.3.sdk/System/Library/Frameworks//UIKit.framework/UIKit.tbd
         # Main
         # [  3] /SomePath/Release-iphoneos/CrashDemo.build/Objects-normal/arm64/AppDelegate.o
+        # Dynamic Framework
+        # [9742] /SomePath/Pods/AFNetworking/Classes/AFNetworking.framework/AFNetworking
         id = $1.to_i
-        lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+        if text.include?('.framework') and not $2.include?('.')
+          lib = $2
+        else
+          lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+        end
         @id_map[id] = {:library => lib, :object => $2}
 
         library = (@library_map[lib] or Library.new(lib, 0, []))
