@@ -22,12 +22,13 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_size => lib.dead_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      total_dead_size = @library_map.values.map(&:dead_size).inject(:+)
 
       # puts total_size
       # puts detail
 
-      @result_hash = {:total => total_size, :detail => detail}
+      @result_hash = {:total => total_size, :detail => detail, :total_dead => total_dead_size}
       @result_hash
     end
 
@@ -40,6 +41,8 @@ module LinkmapIos
 
       report = "# Total size\n"
       report << "#{Filesize.from(result[:total].to_s + 'B').pretty}\n"
+      report << "# Dead Size\n"
+      report << "#{Filesize.from(result[:total_dead].to_s + 'B').pretty}\n"
       report << "\n# Library detail\n"
       result[:detail].sort_by { |h| h[:size] }.reverse.each do |lib|
         report << "#{lib[:library]}   #{Filesize.from(lib[:size].to_s + 'B').pretty}\n"
@@ -70,6 +73,8 @@ module LinkmapIos
               @subparser = :parse_sections
             elsif line.include? "# Symbols:"
               @subparser = :parse_symbols
+            elsif line.include? '# Dead Stripped Symbols:'
+              @subparser = :parse_dead
             end
           else
             send(@subparser, line)
@@ -93,7 +98,7 @@ module LinkmapIos
         id = $1.to_i
         @id_map[id] = {:library => $2, :object => $3}
 
-        library = (@library_map[$2] or Library.new($2, 0, []))
+        library = (@library_map[$2] or Library.new($2, 0, [], 0))
         library.objects << id
         @library_map[$2] = library
       elsif text =~ /\[(.*)\].*\/(.*)/
@@ -102,11 +107,17 @@ module LinkmapIos
         # [100] /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.3.sdk/System/Library/Frameworks//UIKit.framework/UIKit.tbd
         # Main
         # [  3] /SomePath/Release-iphoneos/CrashDemo.build/Objects-normal/arm64/AppDelegate.o
+        # Dynamic Framework
+        # [9742] /SomePath/Pods/AFNetworking/Classes/AFNetworking.framework/AFNetworking
         id = $1.to_i
-        lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+        if text.include?('.framework') and not $2.include?('.')
+          lib = $2
+        else
+          lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+        end
         @id_map[id] = {:library => lib, :object => $2}
 
-        library = (@library_map[lib] or Library.new(lib, 0, []))
+        library = (@library_map[lib] or Library.new(lib, 0, [], 0))
         library.objects << id
         @library_map[lib] = library
       end
@@ -127,5 +138,17 @@ module LinkmapIos
         end
       end
     end
+
+    def parse_dead(text)
+      # <<dead>>  0x00000008  [  3] literal string: v16@0:8
+      if text =~ /^<<dead>>\s+?(0x.*)\s+?\[(\s*\d+)\]\w*/
+        id_info = @id_map[$2.to_i]
+        if id_info
+          id_info[:dead_size] = (id_info[:dead_size] or 0) + $1.to_i(16)
+          @library_map[id_info[:library]].dead_size += $1.to_i(16)
+        end
+      end
+    end
+
   end
 end
