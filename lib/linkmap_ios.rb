@@ -130,7 +130,7 @@ module LinkmapIos
     def parse_symbols(text)
       # Sample
       # 0x1000055C8	0x0000003C	[  4] -[FirstViewController viewWillAppear:]
-      if text =~ /.*(0x.*)\s\[(.*\d)\].*/
+      if text =~ /^0x.+?\s+0x(.+?)\s+\[(.+?)\]/
         id_info = @id_map[$2.to_i]
         if id_info
           id_info[:size] = (id_info[:size] or 0) + $1.to_i(16)
@@ -141,7 +141,7 @@ module LinkmapIos
 
     def parse_dead(text)
       # <<dead>>  0x00000008  [  3] literal string: v16@0:8
-      if text =~ /^<<dead>>\s+?(0x.*)\s+?\[(\s*\d+)\]\w*/
+      if text =~ /^<<dead>>\s+0x(.+?)\s+\[(.+?)\]\w*/
         id_info = @id_map[$2.to_i]
         if id_info
           id_info[:dead_size] = (id_info[:dead_size] or 0) + $1.to_i(16)
