@@ -66,14 +66,14 @@ module LinkmapIos
             # puts "#{line_num}: #{line}"
           end
 
-          if line.include? "#"
-            if line.include? "# Object files:"
+          if line.start_with? "#"
+            if line.start_with? "# Object files:"
               @subparser = :parse_object_files
-            elsif line.include? "# Sections:"
+            elsif line.start_with? "# Sections:"
               @subparser = :parse_sections
-            elsif line.include? "# Symbols:"
+            elsif line.start_with? "# Symbols:"
               @subparser = :parse_symbols
-            elsif line.include? '# Dead Stripped Symbols:'
+            elsif line.start_with? '# Dead Stripped Symbols:'
               @subparser = :parse_dead
             end
           else
