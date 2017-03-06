@@ -22,12 +22,13 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_size => lib.dead_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      total_dead_size = @library_map.values.map(&:dead_size).inject(:+)
 
       # puts total_size
       # puts detail
 
-      @result_hash = {:total => total_size, :detail => detail}
+      @result_hash = {:total => total_size, :detail => detail, :total_dead => total_dead_size}
       @result_hash
     end
 
@@ -40,6 +41,8 @@ module LinkmapIos
 
       report = "# Total size\n"
       report << "#{Filesize.from(result[:total].to_s + 'B').pretty}\n"
+      report << "# Dead Size\n"
+      report << "#{Filesize.from(result[:total_dead].to_s + 'B').pretty}\n"
       report << "\n# Library detail\n"
       result[:detail].sort_by { |h| h[:size] }.reverse.each do |lib|
         report << "#{lib[:library]}   #{Filesize.from(lib[:size].to_s + 'B').pretty}\n"
@@ -63,13 +66,15 @@ module LinkmapIos
             # puts "#{line_num}: #{line}"
           end
 
-          if line.include? "#"
-            if line.include? "# Object files:"
+          if line.start_with? "#"
+            if line.start_with? "# Object files:"
               @subparser = :parse_object_files
-            elsif line.include? "# Sections:"
+            elsif line.start_with? "# Sections:"
               @subparser = :parse_sections
-            elsif line.include? "# Symbols:"
+            elsif line.start_with? "# Symbols:"
               @subparser = :parse_symbols
+            elsif line.start_with? '# Dead Stripped Symbols:'
+              @subparser = :parse_dead
             end
           else
             send(@subparser, line)
@@ -93,7 +98,7 @@ module LinkmapIos
         id = $1.to_i
         @id_map[id] = {:library => $2, :object => $3}
 
-        library = (@library_map[$2] or Library.new($2, 0, []))
+        library = (@library_map[$2] or Library.new($2, 0, [], 0))
         library.objects << id
         @library_map[$2] = library
       elsif text =~ /\[(.*)\].*\/(.*)/
@@ -112,7 +117,7 @@ module LinkmapIos
         end
         @id_map[id] = {:library => lib, :object => $2}
 
-        library = (@library_map[lib] or Library.new(lib, 0, []))
+        library = (@library_map[lib] or Library.new(lib, 0, [], 0))
         library.objects << id
         @library_map[lib] = library
       end
@@ -125,7 +130,7 @@ module LinkmapIos
     def parse_symbols(text)
       # Sample
       # 0x1000055C8	0x0000003C	[  4] -[FirstViewController viewWillAppear:]
-      if text =~ /.*(0x.*)\s\[(.*\d)\].*/
+      if text =~ /^0x.+?\s+0x(.+?)\s+\[(.+?)\]/
         id_info = @id_map[$2.to_i]
         if id_info
           id_info[:size] = (id_info[:size] or 0) + $1.to_i(16)
@@ -133,5 +138,17 @@ module LinkmapIos
         end
       end
     end
+
+    def parse_dead(text)
+      # <<dead>>  0x00000008  [  3] literal string: v16@0:8
+      if text =~ /^<<dead>>\s+0x(.+?)\s+\[(.+?)\]\w*/
+        id_info = @id_map[$2.to_i]
+        if id_info
+          id_info[:dead_size] = (id_info[:dead_size] or 0) + $1.to_i(16)
+          @library_map[id_info[:library]].dead_size += $1.to_i(16)
+        end
+      end
+    end
+
   end
 end
