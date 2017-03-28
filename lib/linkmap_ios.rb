@@ -13,6 +13,7 @@ module LinkmapIos
       @file_path = file_path
       @id_map = {}
       @library_map = {}
+      @section_map = {}
     end
 
     def hash
@@ -52,6 +53,13 @@ module LinkmapIos
         report << "#{id_info[:object]}   #{Filesize.from(id_info[:size].to_s + 'B').pretty}\n"
       end
 
+      report << "# Uncounted Section Detail"
+      @section_map.select do |_, value|
+        value[:residual_size] != 0
+      end
+      .each do |seg_sec_name, value|
+        report << "\n#{seg_sec_name}, start_address: #{value[:start_address]}, end_address: #{value[:end_address]}, residual_size: #{value[:residual_size]}"
+      end
       report
     end
 
@@ -63,7 +71,6 @@ module LinkmapIos
           # Deal with string like 
           unless line.valid_encoding?
             line = line.encode("UTF-16", :invalid => :replace, :replace => "?").encode('UTF-8')
-            # puts "#{line_num}: #{line}"
           end
 
           if line.start_with? "#"
@@ -85,9 +92,6 @@ module LinkmapIos
           raise e
         end
       end
-
-      # puts @id_map
-      # puts @library_map
     end
 
     def parse_object_files(text)
@@ -130,18 +134,44 @@ module LinkmapIos
     end
 
     def parse_sections(text)
-      # Do nothing
+      # Sample:
+      # 0x100005F00 0x031B6A98  __TEXT  __tex
+      text_array = text.split(' ').each(&:strip)
+      section_name = text_array[3]
+      segment_name = text_array[2]
+      start_address = text_array.first.to_i(16)
+      end_address = start_address + text_array[1].to_i(16)
+      # section name may be dulicate in different segment
+      seg_sec_name = "#{segment_name}#{section_name}"
+      @section_map[seg_sec_name.to_sym] = {
+          segment_name: segment_name,
+          section_name: section_name,
+          start_address: start_address,
+          end_address: end_address,
+          symbol_size: 0,
+          residual_size: text_array[1].to_i(16)
+      }
     end
 
     def parse_symbols(text)
       # Sample
       # 0x1000055C8	0x0000003C	[  4] -[FirstViewController viewWillAppear:]
-      if text =~ /^0x.+?\s+0x(.+?)\s+\[(.+?)\]/
-        id_info = @id_map[$2.to_i]
+      if text =~ /^0x(.+?)\s+0x(.+?)\s+\[(.+?)\]/
+        symbol_address = $1.to_i(16)
+        symbol_size = $2.to_i(16)
+        symbol_file_id = $3.to_i
+        id_info = @id_map[symbol_file_id]
         if id_info
-          id_info[:size] = (id_info[:size] or 0) + $1.to_i(16)
-          @library_map[id_info[:library]].size += $1.to_i(16)
+          id_info[:size] = (id_info[:size] or 0) + symbol_size
+          @library_map[id_info[:library]].size += symbol_size
+          seg_sec_name = @section_map.detect {|seg_sec_name, value| (value[:start_address]...value[:end_address]).include? symbol_address}[0]
+          @section_map[seg_sec_name.to_sym][:symbol_size] += symbol_size
+          @section_map[seg_sec_name.to_sym][:residual_size] -= symbol_size
+        else
+          puts "#{text.inspect} can not found object file"
         end
+      else
+        puts "#{text.inspect} can not match symbol regular"
       end
     end
 
