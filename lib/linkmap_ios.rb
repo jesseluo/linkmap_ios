@@ -120,6 +120,12 @@ module LinkmapIos
         library = (@library_map[lib] or Library.new(lib, 0, [], 0))
         library.objects << id
         @library_map[lib] = library
+      elsif text =~ /\[(.*)\]\s*([\w\s]+)/
+        # Sample:
+        # [  0] linker synthesized
+        # [  1] dtrace
+        id = $1.to_i
+        @id_map[id] = {library: 'Main', object: $2}
       end
     end
 
