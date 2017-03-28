@@ -3,7 +3,7 @@ require "filesize"
 require "json"
 
 module LinkmapIos
-  Library = Struct.new(:name, :size, :objects)
+  Library = Struct.new(:name, :size, :objects, :dead_symbol_size)
 
   class LinkmapParser
     attr_reader :id_map
@@ -22,8 +22,8 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_size => lib.dead_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
-      total_dead_size = @library_map.values.map(&:dead_size).inject(:+)
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_symbol_size => lib.dead_symbol_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      total_dead_size = @library_map.values.map(&:dead_symbol_size).inject(:+)
 
       # puts total_size
       # puts detail
@@ -144,8 +144,8 @@ module LinkmapIos
       if text =~ /^<<dead>>\s+0x(.+?)\s+\[(.+?)\]\w*/
         id_info = @id_map[$2.to_i]
         if id_info
-          id_info[:dead_size] = (id_info[:dead_size] or 0) + $1.to_i(16)
-          @library_map[id_info[:library]].dead_size += $1.to_i(16)
+          id_info[:dead_symbol_size] = (id_info[:dead_symbol_size] or 0) + $1.to_i(16)
+          @library_map[id_info[:library]].dead_symbol_size += $1.to_i(16)
         end
       end
     end
