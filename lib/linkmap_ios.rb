@@ -92,6 +92,7 @@ module LinkmapIos
           raise e
         end
       end
+      puts "There are #{@section_map.values.map{|value| value[:residual_size]}.inject(:+)} Byte in some section can not be analyze"
     end
 
     def parse_object_files(text)
