@@ -3,7 +3,7 @@ require "filesize"
 require "json"
 
 module LinkmapIos
-  Library = Struct.new(:name, :size, :objects)
+  Library = Struct.new(:name, :size, :objects, :dead_symbol_size)
 
   class LinkmapParser
     attr_reader :id_map
@@ -13,6 +13,7 @@ module LinkmapIos
       @file_path = file_path
       @id_map = {}
       @library_map = {}
+      @section_map = {}
     end
 
     def hash
@@ -22,8 +23,8 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_size => lib.dead_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
-      total_dead_size = @library_map.values.map(&:dead_size).inject(:+)
+      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_symbol_size => lib.dead_symbol_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      total_dead_size = @library_map.values.map(&:dead_symbol_size).inject(:+)
 
       # puts total_size
       # puts detail
@@ -52,6 +53,13 @@ module LinkmapIos
         report << "#{id_info[:object]}   #{Filesize.from(id_info[:size].to_s + 'B').pretty}\n"
       end
 
+      report << "# Uncounted Section Detail"
+      @section_map.select do |_, value|
+        value[:residual_size] != 0
+      end
+      .each do |seg_sec_name, value|
+        report << "\n#{seg_sec_name}, start_address: #{value[:start_address]}, end_address: #{value[:end_address]}, residual_size: #{value[:residual_size]}"
+      end
       report
     end
 
@@ -63,7 +71,6 @@ module LinkmapIos
           # Deal with string like 
           unless line.valid_encoding?
             line = line.encode("UTF-16", :invalid => :replace, :replace => "?").encode('UTF-8')
-            # puts "#{line_num}: #{line}"
           end
 
           if line.start_with? "#"
@@ -85,9 +92,7 @@ module LinkmapIos
           raise e
         end
       end
-
-      # puts @id_map
-      # puts @library_map
+      puts "There are #{@section_map.values.map{|value| value[:residual_size]}.inject(:+)} Byte in some section can not be analyze"
     end
 
     def parse_object_files(text)
@@ -120,22 +125,54 @@ module LinkmapIos
         library = (@library_map[lib] or Library.new(lib, 0, [], 0))
         library.objects << id
         @library_map[lib] = library
+      elsif text =~ /\[(.*)\]\s*([\w\s]+)/
+        # Sample:
+        # [  0] linker synthesized
+        # [  1] dtrace
+        id = $1.to_i
+        @id_map[id] = {library: 'Main', object: $2}
       end
     end
 
     def parse_sections(text)
-      # Do nothing
+      # Sample:
+      # 0x100005F00 0x031B6A98  __TEXT  __tex
+      text_array = text.split(' ').each(&:strip)
+      section_name = text_array[3]
+      segment_name = text_array[2]
+      start_address = text_array.first.to_i(16)
+      end_address = start_address + text_array[1].to_i(16)
+      # section name may be dulicate in different segment
+      seg_sec_name = "#{segment_name}#{section_name}"
+      @section_map[seg_sec_name.to_sym] = {
+          segment_name: segment_name,
+          section_name: section_name,
+          start_address: start_address,
+          end_address: end_address,
+          symbol_size: 0,
+          residual_size: text_array[1].to_i(16)
+      }
     end
 
     def parse_symbols(text)
       # Sample
       # 0x1000055C8	0x0000003C	[  4] -[FirstViewController viewWillAppear:]
-      if text =~ /^0x.+?\s+0x(.+?)\s+\[(.+?)\]/
-        id_info = @id_map[$2.to_i]
+      if text =~ /^0x(.+?)\s+0x(.+?)\s+\[(.+?)\]/
+        symbol_address = $1.to_i(16)
+        symbol_size = $2.to_i(16)
+        symbol_file_id = $3.to_i
+        id_info = @id_map[symbol_file_id]
         if id_info
-          id_info[:size] = (id_info[:size] or 0) + $1.to_i(16)
-          @library_map[id_info[:library]].size += $1.to_i(16)
+          id_info[:size] = (id_info[:size] or 0) + symbol_size
+          @library_map[id_info[:library]].size += symbol_size
+          seg_sec_name = @section_map.detect {|seg_sec_name, value| (value[:start_address]...value[:end_address]).include? symbol_address}[0]
+          @section_map[seg_sec_name.to_sym][:symbol_size] += symbol_size
+          @section_map[seg_sec_name.to_sym][:residual_size] -= symbol_size
+        else
+          puts "#{text.inspect} can not found object file"
         end
+      else
+        puts "#{text.inspect} can not match symbol regular"
       end
     end
 
@@ -144,8 +181,8 @@ module LinkmapIos
       if text =~ /^<<dead>>\s+0x(.+?)\s+\[(.+?)\]\w*/
         id_info = @id_map[$2.to_i]
         if id_info
-          id_info[:dead_size] = (id_info[:dead_size] or 0) + $1.to_i(16)
-          @library_map[id_info[:library]].dead_size += $1.to_i(16)
+          id_info[:dead_symbol_size] = (id_info[:dead_symbol_size] or 0) + $1.to_i(16)
+          @library_map[id_info[:library]].dead_symbol_size += $1.to_i(16)
         end
       end
     end
