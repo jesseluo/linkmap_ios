@@ -34,10 +34,14 @@ Byte is the default unit in all kind of output.
 ## Release Note
 ### [0.1.0] 2016-08-09
 1. Finish all base functions
+### [0.1.1] 2017-3-29
+1. Increase the concurrency, add dead stripped symbol handle in symbol analyze
+2. Add simple section analyze
+3. Add uncounted section number in report
 
 ## TODO
 1. Add test specs
-2. Add sections analysis
+2. Add full sections analysis function
 
 ## Development
 
