@@ -22,8 +22,15 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
-
+      detail = @library_map.values.map do |lib|
+        {
+            :library => lib.name,
+            :size => lib.size,
+            :objects => lib.objects.map do |o|
+              {@id_map[o][:object].to_sym => @id_map[o][:size]}
+            end
+        }
+      end
       # puts total_size
       # puts detail
 

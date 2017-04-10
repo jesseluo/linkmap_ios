@@ -32,6 +32,10 @@ Parse link map file and output. Will output Ruby Hash by default
 Byte is the default unit in all kind of output.
 
 ## Release Note
+### [0.1.0-add-obj-detail]2017-04-10
+
+1. add obj file size detail to hash and json report 
+
 ### [0.1.0] 2016-08-09
 1. Finish all base functions
 
