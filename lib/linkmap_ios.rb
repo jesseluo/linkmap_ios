@@ -118,7 +118,11 @@ module LinkmapIos
         if text.include?('.framework') and not $2.include?('.')
           lib = $2
         else
-          lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+            if text.include?('Google')
+                lib = $2
+            else
+                lib = $2.end_with?('.tbd') ? 'System' : 'Main'
+            end
         end
         @id_map[id] = {:library => lib, :object => $2}
 
