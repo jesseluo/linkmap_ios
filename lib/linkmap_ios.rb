@@ -3,12 +3,12 @@ require "filesize"
 require "json"
 
 module LinkmapIos
-  Library = Struct.new(:name, :size, :objects, :dead_symbol_size)
+    Library = Struct.new(:name, :size, :objects, :dead_symbol_size, :pod)
 
   class LinkmapParser
     attr_reader :id_map
     attr_reader :library_map
-
+    
     def initialize(file_path)
       @file_path = file_path
       @id_map = {}
@@ -23,7 +23,7 @@ module LinkmapIos
       parse
 
       total_size = @library_map.values.map(&:size).inject(:+)
-      detail = @library_map.values.map { |lib| {:library => lib.name, :size => lib.size, :dead_symbol_size => lib.dead_symbol_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
+      detail = @library_map.values.map { |lib| {:library => lib.name, :pod => lib.pod, :size => lib.size, :dead_symbol_size => lib.dead_symbol_size, :objects => lib.objects.map { |o| @id_map[o][:object] }}}
       total_dead_size = @library_map.values.map(&:dead_symbol_size).inject(:+)
 
       # puts total_size
@@ -105,6 +105,14 @@ module LinkmapIos
 
         library = (@library_map[$2] or Library.new($2, 0, [], 0))
         library.objects << id
+        if text.include?('/Pods/')
+          divstr = text.split('/Pods/').last
+          podname = divstr.split('/').first
+          puts "+++++++++ text = #{text}, divstr = #{divstr}, podname = #{podname}"
+          library.pod = podname
+        else
+          library.pod = ''
+        end
         @library_map[$2] = library
       elsif text =~ /\[(.*)\].*\/(.*)/
         # Sample:
@@ -126,9 +134,13 @@ module LinkmapIos
         end
         @id_map[id] = {:library => lib, :object => $2}
 
-        library = (@library_map[lib] or Library.new(lib, 0, [], 0))
+        library = (@library_map[lib] or Library.new(lib, 0, [], 0, ''))
         library.objects << id
+        if text.include?('MTMapKit')
+          puts text
+        end
         @library_map[lib] = library
+        
       elsif text =~ /\[(.*)\]\s*([\w\s]+)/
         # Sample:
         # [  0] linker synthesized
