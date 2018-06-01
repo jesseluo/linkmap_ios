@@ -3,7 +3,7 @@ require "filesize"
 require "json"
 
 module LinkmapIos
-    Library = Struct.new(:name, :size, :objects, :dead_symbol_size, :pod)
+  Library = Struct.new(:name, :size, :objects, :dead_symbol_size, :pod)
 
   class LinkmapParser
     attr_reader :id_map
@@ -108,7 +108,6 @@ module LinkmapIos
         if text.include?('/Pods/')
           divstr = text.split('/Pods/').last
           podname = divstr.split('/').first
-          puts "+++++++++ text = #{text}, divstr = #{divstr}, podname = #{podname}"
           library.pod = podname
         else
           library.pod = ''
