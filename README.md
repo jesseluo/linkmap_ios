@@ -32,12 +32,17 @@ Parse link map file and output. Will output Ruby Hash by default
 Byte is the default unit in all kind of output.
 
 ## Release Note
-### [0.1.0] 2016-08-09
-1. Finish all base functions
-### [0.1.1] 2017-3-29
+### [0.1.3] 2018-06-07
+1. Support .a file
+2. Minor bugfixs
+
+### [0.1.1] 2017-03-29
 1. Increase the concurrency, add dead stripped symbol handle in symbol analyze
 2. Add simple section analyze
 3. Add uncounted section number in report
+
+### [0.1.0] 2016-08-09
+1. Finish all base functions
 
 ## TODO
 1. Add test specs
