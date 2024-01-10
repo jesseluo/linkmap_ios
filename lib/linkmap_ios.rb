@@ -96,12 +96,15 @@ module LinkmapIos
     end
 
     def parse_object_files(text)
-      if text =~ /\[(.*)\].*\/(.*)\((.*)\)/
+      if text =~ /\[(.*)\].*\/([^\[)]*)(\[(.*)\])?\((.*)\)/
         # Sample:
         # [  6] SomePath/Release-iphoneos/ReactiveCocoa/libReactiveCocoa.a(MKAnnotationView+RACSignalSupport.o)
+        # As of Xcode15, there are brackets. Sample:
+        # [14609] /Users/admin/workspace/App/BuildProductsPath/Standard-iphoneos/AnyFramework.framework/AnySubsystem[18](Feature.o)
+
         # So $1 is id. $2 is library
         id = $1.to_i
-        @id_map[id] = {:library => $2, :object => $3}
+        @id_map[id] = {:library => $2, :object => $5}
 
         library = (@library_map[$2] or Library.new($2, 0, [], 0))
         library.objects << id
